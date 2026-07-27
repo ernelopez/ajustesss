@@ -1,105 +1,224 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
-st.title("Ajuste por cuadrados mínimos")
+# -------------------------------------------------------
+# Funciones de ajuste
+# -------------------------------------------------------
 
-st.write(
-    "Ingresá los datos (una pareja t,y por línea). "
-    "Los valores deben ingresarse separados por una coma; "
-    "el punto decimal es el punto."
-)
+def exponencial(t, A, B):
+    return A * B**t
 
-default_text = "1.1,2.3\n1.9,3.8\n2.5,7.1\n3.0,5.9"
+def logistica(t, K, A, r):
+    return K / (1 + A * np.exp(-r * t))
 
-texto = st.text_area("Datos", value=default_text, height=150)
-
-tipo_ajuste = st.selectbox(
-    "Tipo de ajuste",
-    ["Lineal", "Exponencial"]
-)
-
+# -------------------------------------------------------
+# Lectura de datos
+# -------------------------------------------------------
 
 def parsear(texto):
     ts, ys = [], []
+
     for linea in texto.split("\n"):
+
         if linea.strip() == "":
             continue
+
         try:
             t_str, y_str = linea.split(",")
             ts.append(float(t_str))
             ys.append(float(y_str))
+
         except:
             return None, None
+
     return np.array(ts), np.array(ys)
 
+# -------------------------------------------------------
+# Interfaz
+# -------------------------------------------------------
+
+st.title("Ajuste por cuadrados mínimos")
+
+st.write(
+    "Ingresá una pareja (t,y) por línea. "
+    "Los valores deben separarse con una coma."
+)
+
+default_text = """1,12
+2,20
+3,32
+4,45
+5,61
+6,79
+7,90
+8,97"""
+
+texto = st.text_area("Datos", value=default_text, height=180)
+
+t, y = parsear(texto)
+
+if t is not None and len(t) >= 2:
+
+    n_total = len(t)
+
+    n_ajuste = st.slider(
+        "Cantidad de datos utilizados para el ajuste",
+        min_value=2,
+        max_value=n_total,
+        value=n_total
+    )
+
+else:
+    n_ajuste = 2
+
+tipo_ajuste = st.selectbox(
+    "Tipo de ajuste",
+    ["Exponencial", "Logístico"]
+)
+
+# -------------------------------------------------------
+# Ajuste
+# -------------------------------------------------------
 
 if st.button("Ejecutar"):
 
     t, y = parsear(texto)
 
     if t is None or len(t) < 2:
-        st.warning("Formato inválido o faltan datos.")
+        st.warning("Formato inválido.")
 
     else:
 
-        if tipo_ajuste == "Lineal":
+        t_fit = t[:n_ajuste]
+        y_fit = y[:n_ajuste]
 
-            # Ajuste lineal
-            a, b = np.polyfit(t, y, 1)
+        try:
 
-            y_pred = a * t + b
+            if tipo_ajuste == "Exponencial":
 
-            x_line = np.linspace(0, max(t), 300)
-            y_line = a * x_line + b
+                if np.any(y_fit <= 0):
+                    st.error("Todos los valores de y deben ser positivos.")
+                    st.stop()
 
-            ecuacion = rf"y={a:.4f}\,t"
-            if b >= 0:
-                ecuacion += rf"+{b:.4f}"
+                m, c = np.polyfit(t_fit, np.log(y_fit), 1)
+
+                A = np.exp(c)
+                B = np.exp(m)
+
+                y_pred = exponencial(t_fit, A, B)
+
+                x_line = np.linspace(
+                    min(t),
+                    max(t),
+                    400
+                )
+
+                y_line = exponencial(x_line, A, B)
+
+                ecuacion = rf"y={A:.4f}\,{B:.4f}^{{t}}"
+
             else:
-                ecuacion += rf"{b:.4f}"
 
-        else:
+                K0 = 1.2 * np.max(y_fit)
+                A0 = max(K0 / y_fit[0] - 1, 0.1)
+                r0 = 0.2
 
-            # Ajuste exponencial
-            if np.any(y <= 0):
-                st.error("Para el ajuste exponencial todos los valores de y deben ser positivos.")
-                st.stop()
+                parametros, _ = curve_fit(
+                    logistica,
+                    t_fit,
+                    y_fit,
+                    p0=[K0, A0, r0],
+                    maxfev=20000
+                )
 
-            m, c = np.polyfit(t, np.log(y), 1)
+                K, A, r = parametros
 
-            A = np.exp(c)
-            B = np.exp(m)
+                y_pred = logistica(t_fit, K, A, r)
 
-            y_pred = A * B**t
+                x_line = np.linspace(
+                    min(t),
+                    max(t),
+                    400
+                )
 
-            x_line = np.linspace(0, max(t), 300)
-            y_line = A * B**x_line
+                y_line = logistica(x_line, K, A, r)
 
-            ecuacion = rf"y={A:.4f}\,{B:.4f}^{{t}}"
+                ecuacion = (
+                    rf"y=\frac{{{K:.4f}}}"
+                    rf"{{1+{A:.4f}e^{{-{r:.4f}t}}}}"
+                )
 
-        # Suma de cuadrados de residuos
-        ss = np.sum((y - y_pred) ** 2)
+            # ------------------------------------------
+            # Error cuadrático
+            # ------------------------------------------
 
-        # Gráfico
-        fig, ax = plt.subplots()
+            ss = np.sum((y_fit - y_pred) ** 2)
 
-        ax.scatter(t, y, label="Datos")
-        ax.plot(x_line, y_line, label="Ajuste")
+            # ------------------------------------------
+            # Gráfico
+            # ------------------------------------------
 
-        # Residuos
-        for ti, yi, ypi in zip(t, y, y_pred):
-            ax.plot([ti, ti], [yi, ypi], color="red")
+            fig, ax = plt.subplots(figsize=(8,5))
 
-        ax.set_xlim(left=0)
-        ax.set_ylim(bottom=0)
+            # Puntos usados
+            ax.scatter(
+                t_fit,
+                y_fit,
+                color="tab:blue",
+                s=50,
+                label="Datos ajustados"
+            )
 
-        ax.set_xlabel("t")
-        ax.set_ylabel("y")
+            # Puntos no usados
+            if n_ajuste < len(t):
 
-        ax.legend()
+                ax.scatter(
+                    t[n_ajuste:],
+                    y[n_ajuste:],
+                    color="gray",
+                    s=50,
+                    label="Datos no ajustados"
+                )
 
-        st.pyplot(fig)
+            # Curva
 
-        st.latex(ecuacion)
-        st.write(f"Suma de cuadrados de residuos: {ss:.4f}")
+            ax.plot(
+                x_line,
+                y_line,
+                color="tab:orange",
+                linewidth=2,
+                label="Ajuste"
+            )
+
+            # Residuos
+
+            for ti, yi, ypi in zip(t_fit, y_fit, y_pred):
+
+                ax.plot(
+                    [ti, ti],
+                    [yi, ypi],
+                    color="red"
+                )
+
+            ax.set_xlabel("t")
+            ax.set_ylabel("y")
+
+            ax.grid(True)
+
+            ax.legend()
+
+            st.pyplot(fig)
+
+            st.latex(ecuacion)
+
+            st.write(
+                f"Suma de cuadrados de residuos = {ss:.4f}"
+            )
+
+        except Exception as e:
+
+            st.error("No fue posible realizar el ajuste.")
+
+            st.exception(e)
