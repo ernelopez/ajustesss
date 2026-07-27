@@ -144,10 +144,11 @@ if st.button("Ejecutar"):
                 )
 
                 y_line = logistica(x_line, K, A, r)
-
+                base = np.exp(r)
                 ecuacion = (
                     rf"y=\frac{{{K:.4f}}}"
-                    rf"{{1+{A:.4f}e^{{-{r:.4f}t}}}}"
+                    rf"{{1+{A:.4f}\,{base:.4f}^t}}"
+                    #rf"{{1+{A:.4f}e^{{-{r:.4f}t}}}}"
                 )
 
             # ------------------------------------------
