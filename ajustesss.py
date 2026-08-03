@@ -7,6 +7,9 @@ from scipy.optimize import curve_fit
 # Funciones de ajuste
 # -------------------------------------------------------
 
+def lineal(t, a, b):
+    return a * t + b
+    
 def exponencial(t, A, B):
     return A * B**t
 
@@ -75,7 +78,7 @@ else:
 
 tipo_ajuste = st.selectbox(
     "Tipo de ajuste",
-    ["Exponencial", "Logístico"]
+    ["Lineal", "Exponencial", "Logístico"]
 )
 
 # -------------------------------------------------------
@@ -95,6 +98,20 @@ if st.button("Ejecutar"):
         y_fit = y[:n_ajuste]
 
         try:
+            if tipo_ajuste == "Lineal":
+
+                a, b = np.polyfit(t_fit, y_fit, 1)
+
+                y_pred = lineal(t_fit, a, b)
+
+                x_line = np.linspace(min(t), max(t), 400)
+                y_line = lineal(x_line, a, b)
+
+                ecuacion = rf"y={a:.2f}t"
+                if b >= 0:
+                    ecuacion += rf"+{b:.2f}"
+                else:
+                    ecuacion += rf"{b:.2f}"
 
             if tipo_ajuste == "Exponencial":
 
@@ -117,7 +134,7 @@ if st.button("Ejecutar"):
 
                 y_line = exponencial(x_line, A, B)
 
-                ecuacion = rf"y={A:.4f}\,{B:.4f}^{{t}}"
+                ecuacion = rf"y={A:.2f}\cdot {B:.2f}^{{t}}"
 
             else:
 
@@ -146,9 +163,8 @@ if st.button("Ejecutar"):
                 y_line = logistica(x_line, K, A, r)
                 base = np.exp(-r)
                 ecuacion = (
-                    rf"y=\frac{{{K:.4f}}}"
-                    rf"{{1+{A:.4f}\,{base:.4f}^t}}"
-                    #rf"{{1+{A:.4f}e^{{-{r:.4f}t}}}}"
+                    rf"y=\frac{{{K:.2f}}}"
+                    rf"{{1+{A:.2f}\cdot {base:.2f}^{{t}}}}"
                 )
 
             # ------------------------------------------
@@ -214,9 +230,9 @@ if st.button("Ejecutar"):
 
             st.latex(ecuacion)
 
-            st.write(
-                f"Suma de cuadrados de residuos = {ss:.4f}"
-            )
+            #st.write(
+            #    f"Suma de cuadrados de residuos = {ss:.4f}"
+            #)
 
         except Exception as e:
 
