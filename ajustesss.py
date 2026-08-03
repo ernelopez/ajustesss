@@ -99,49 +99,44 @@ if st.button("Ejecutar"):
 
         try:
             if tipo_ajuste == "Lineal":
-
+            
                 a, b = np.polyfit(t_fit, y_fit, 1)
-
+            
                 y_pred = lineal(t_fit, a, b)
-
+            
                 x_line = np.linspace(min(t), max(t), 400)
                 y_line = lineal(x_line, a, b)
-
+            
                 ecuacion = rf"y={a:.2f}t"
                 if b >= 0:
                     ecuacion += rf"+{b:.2f}"
                 else:
                     ecuacion += rf"{b:.2f}"
-
-            if tipo_ajuste == "Exponencial":
-
+            
+            elif tipo_ajuste == "Exponencial":
+            
                 if np.any(y_fit <= 0):
                     st.error("Todos los valores de y deben ser positivos.")
                     st.stop()
-
+            
                 m, c = np.polyfit(t_fit, np.log(y_fit), 1)
-
+            
                 A = np.exp(c)
                 B = np.exp(m)
-
+            
                 y_pred = exponencial(t_fit, A, B)
-
-                x_line = np.linspace(
-                    min(t),
-                    max(t),
-                    400
-                )
-
+            
+                x_line = np.linspace(min(t), max(t), 400)
                 y_line = exponencial(x_line, A, B)
-
-                ecuacion = rf"y={A:.2f}\cdot {B:.2f}^{{t}}"
-
-            else:
-
+            
+                ecuacion = rf"y={A:.2f}\cdot{B:.2f}^{{t}}"
+            
+            elif tipo_ajuste == "Logístico":
+            
                 K0 = 1.2 * np.max(y_fit)
                 A0 = max(K0 / y_fit[0] - 1, 0.1)
                 r0 = 0.2
-
+            
                 parametros, _ = curve_fit(
                     logistica,
                     t_fit,
@@ -149,30 +144,22 @@ if st.button("Ejecutar"):
                     p0=[K0, A0, r0],
                     maxfev=20000
                 )
-
+            
                 K, A, r = parametros
-
+            
                 y_pred = logistica(t_fit, K, A, r)
-
-                x_line = np.linspace(
-                    min(t),
-                    max(t),
-                    400
-                )
-
+            
+                x_line = np.linspace(min(t), max(t), 400)
                 y_line = logistica(x_line, K, A, r)
+            
                 base = np.exp(-r)
+            
                 ecuacion = (
                     rf"y=\frac{{{K:.2f}}}"
-                    rf"{{1+{A:.2f}\cdot {base:.2f}^{{t}}}}"
+                    rf"{{1+{A:.2f}\cdot{base:.2f}^{{t}}}}"
                 )
 
-            # ------------------------------------------
-            # Error cuadrático
-            # ------------------------------------------
-
-            ss = np.sum((y_fit - y_pred) ** 2)
-
+            
             # ------------------------------------------
             # Gráfico
             # ------------------------------------------
